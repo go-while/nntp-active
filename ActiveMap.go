@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	BIGNUM31        uint64        = 2147483647 // 2^31-1
-	BIGNUM32        uint64        = 4294967295 // 2^32-1
-	BIGNUM63        uint64        = 2 ^ 63 - 1 // 2^63-1
-	BIGNUM64        uint64        = 2 ^ 64 - 1 // 2^64-1
+	BIGNUM31 uint64 = 2147483647 // 2^31-1
+	BIGNUM32 uint64 = 4294967295 // 2^32-1
+	BIGNUM63 uint64 = 2 ^ 63 - 1 // 2^63-1
+	BIGNUM64 uint64 = 2 ^ 64 - 1 // 2^64-1
 )
 
 var (
@@ -41,11 +41,11 @@ type ActiveData struct {
 
 // ActiveMap is safe to use concurrently.
 type ActiveMap struct {
-	V       map[string]ActiveData /// key group, val ActiveData
-	HashmapH map[string]string     /// key hash, val group
-	HashmapG map[string]string     /// key group, val hash
-	mux     sync.RWMutex
-	Hashmux sync.RWMutex // Hashmux
+	V                     map[string]ActiveData /// key group, val ActiveData
+	HashmapH              map[string]string     /// key hash, val group
+	HashmapG              map[string]string     /// key group, val hash
+	mux                   sync.RWMutex
+	Hashmux               sync.RWMutex // Hashmux
 	Lock_write_active_map chan struct{}
 }
 
@@ -314,13 +314,13 @@ func (c *ActiveMap) Write_activemap(cfgSettings *config.SETTINGS, ignore_notboot
 	// tmp file closed ok
 
 	// remove .2 and move .1 and .old
-	if utils.FileExists(filename_bak+".2") {
-		if err := os.Remove(filename_bak+".2"); err != nil {
+	if utils.FileExists(filename_bak + ".2") {
+		if err := os.Remove(filename_bak + ".2"); err != nil {
 			log.Printf("ERROR write_activemap remove .2 failed err='%v'", err)
 			return false
 		}
 	}
-	if utils.FileExists(filename_bak+".1") {
+	if utils.FileExists(filename_bak + ".1") {
 		if err := os.Rename(filename_bak+".1", filename_bak+".2"); err != nil {
 			log.Printf("ERROR write_activemap rename .1 to .2 failed err='%v'", err)
 			return false
