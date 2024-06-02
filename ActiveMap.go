@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	//"net"
 	//"sort"
 	"strings"
@@ -18,11 +19,13 @@ import (
 	//"time"
 )
 
-const (
-	BIGNUM31 uint64 = 2147483647 // 2^31-1
-	BIGNUM32 uint64 = 4294967295 // 2^32-1
-	BIGNUM63 uint64 = 2 ^ 63 - 1 // 2^63-1
-	BIGNUM64 uint64 = 2 ^ 64 - 1 // 2^64-1
+var (
+	BIGNUM31 uint64 = uint64(math.Pow(2, 31)) - 1
+	BIGNUM32 uint64 = uint64(math.Pow(2, 32)) - 1
+	BIGNUM63 uint64 = uint64(math.Pow(2, 63)) - 1
+	BIGNUM_DEFAULT = BIGNUM31
+	BIGNUM = BIGNUM_DEFAULT
+	//BIGNUM64 uint64 = uint64(math.Pow(2, 64)) - 1
 )
 
 var (
@@ -134,25 +137,27 @@ func (c *ActiveMap) GetActiveMap(id uint64, short bool, bignum uint64, cutLowGro
 		line := ""
 		switch bignum {
 		case BIGNUM31:
-			if data.Hi >= BIGNUM31-1 {
-				continue
+			if data.Hi >= BIGNUM31 {
+				line = fmt.Sprintf("%s %010d %010d %s", data.Group, BIGNUM31, data.Lo, data.Status) // leftpad zeros
+			} else {
+				line = fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
 			}
-			line = fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
 		case BIGNUM32:
-			if data.Hi >= BIGNUM32-1 {
-				continue
+			if data.Hi >= BIGNUM32 {
+				line = fmt.Sprintf("%s %010d %010d %s", data.Group, BIGNUM32, data.Lo, data.Status) // leftpad zeros
+			} else {
+				line = fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
 			}
-			line = fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
 		case BIGNUM63:
-			if data.Hi >= BIGNUM63-1 {
-				continue
+			if data.Hi >= BIGNUM63 {
+				line = fmt.Sprintf("%s %016d %016d %s", data.Group, BIGNUM63, data.Lo, data.Status) // leftpad zeros
+			} else {
+				line = fmt.Sprintf("%s %016d %016d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
 			}
-			line = fmt.Sprintf("%s %016d %016d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
-		case BIGNUM64:
-			//if data.Hi > BIGNUM64 {
-			//	continue
-			//}
-			line = fmt.Sprintf("%s %016d %016d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
+		//case BIGNUM64:
+		//	if data.Hi >= BIGNUM63 {
+		//		line = fmt.Sprintf("%s %016d %016d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
+		//	}
 		}
 		//line := fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
 		if line != "" {
@@ -271,7 +276,7 @@ func (c *ActiveMap) Write_activemap(cfgSettings *config.SETTINGS, ignore_notboot
 	defer c.Unlock_write_activemap()
 	short := false
 	cutLowGroups := false
-	list := c.GetActiveMap(0, short, BIGNUM64, cutLowGroups)
+	list := c.GetActiveMap(0, short, BIGNUM_DEFAULT, cutLowGroups)
 	if len(list) == 0 {
 		log.Printf("INFO write_activemap len(list)==0")
 		return false
@@ -363,7 +368,7 @@ func (c *ActiveMap) LoadActiveFile(cfg *config.CFG) {
 	log.Printf("LoadActiveFile read %d bytes", len(file_list))
 
 	data := strings.Split(string(file_list), "\n")
-	loaded := 0
+	loaded, bad, badg := 0, 0, []string{}
 	for _, line := range data {
 		if len(line) <= 0 {
 			continue
@@ -376,7 +381,9 @@ func (c *ActiveMap) LoadActiveFile(cfg *config.CFG) {
 		var ad ActiveData
 		group := values[0]
 		if !overview.IsValidGroupName(group) {
-			log.Printf("WARN LoadActiveFile !IsValidGroupName ignored group='%s'", group)
+			//log.Printf("WARN LoadActiveFile !IsValidGroupName ignored group='%s'", group)
+			bad++
+			badg = append(badg, group)
 			continue
 		}
 		ad.Group = group
@@ -398,5 +405,8 @@ func (c *ActiveMap) LoadActiveFile(cfg *config.CFG) {
 			loaded++
 		}
 	}
-	log.Printf("LoadActiveFile Groups=%d", loaded)
+	//for _, group := range badg {
+	//	fmt.Println("badgroup="+group)
+	//}
+	log.Printf("LoadActiveFile Groups=%d Bad=%d", loaded, bad)
 } // end func readListFile
