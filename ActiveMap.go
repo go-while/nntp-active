@@ -24,9 +24,7 @@ var (
 	BIGNUM32 uint64 = 4294967295
 	BIGNUM63 uint64 = 9223372036854775807
 	BIGNUM64 uint64 = 18446744073709551615
-	BIGNUM_DEFAULT = BIGNUM31
-	BIGNUM = BIGNUM_DEFAULT
-	//BIGNUM64 uint64 = uint64(math.Pow(2, 64)) - 1
+	BIGNUM_DEFAULT = BIGNUM64 // does not really anything anymore. year 2025 we should be at uint64 -.-
 	DebugActiveMap bool = false
 )
 
@@ -134,34 +132,11 @@ func (c *ActiveMap) GetActiveMap(id uint64, short bool, bignum uint64, cutLowGro
 			retlist = append(retlist, line)
 			continue
 		}
-		line := ""
-		switch bignum {
-		case BIGNUM31:
-			if data.Hi >= BIGNUM31 {
-				line = fmt.Sprintf("%s %010d %010d %s", data.Group, BIGNUM31, data.Lo, data.Status) // leftpad zeros
-			} else {
-				line = fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
-			}
-		case BIGNUM32:
-			if data.Hi >= BIGNUM32 {
-				line = fmt.Sprintf("%s %010d %010d %s", data.Group, BIGNUM32, data.Lo, data.Status) // leftpad zeros
-			} else {
-				line = fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
-			}
-		case BIGNUM63:
-			if data.Hi >= BIGNUM63 {
-				line = fmt.Sprintf("%s %019d %019d %s", data.Group, BIGNUM63, data.Lo, data.Status) // leftpad zeros
-			} else {
-				line = fmt.Sprintf("%s %019d %019d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
-			}
-		case BIGNUM64:
-			//line = fmt.Sprintf("%s %020d %020d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
-			line = fmt.Sprintf("%s %d %d %s", data.Group, data.Hi, data.Lo, data.Status)
-		}
+		line := fmt.Sprintf("%s %d %d %s", data.Group, data.Hi, data.Lo, data.Status)
 		//line := fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
-		if line != "" {
-			retlist = append(retlist, line)
-		}
+		//line := fmt.Sprintf("%s %019d %019d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
+		retlist = append(retlist, line)
+
 		//log.Printf("getActiveMap line='%s'", line)
 	} // end for data cv
 	c.mux.RUnlock()
