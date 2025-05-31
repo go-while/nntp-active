@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
+	//"math"
 	//"net"
 	//"sort"
 	"strings"
@@ -20,12 +20,14 @@ import (
 )
 
 var (
-	BIGNUM31 uint64 = uint64(math.Pow(2, 31)) - 1
-	BIGNUM32 uint64 = uint64(math.Pow(2, 32)) - 1
-	BIGNUM63 uint64 = uint64(math.Pow(2, 63)) - 1
+	BIGNUM31 uint64 = 2147483647
+	BIGNUM32 uint64 = 4294967295
+	BIGNUM63 uint64 = 9223372036854775807
+	BIGNUM64 uint64 = 18446744073709551615
 	BIGNUM_DEFAULT = BIGNUM31
 	BIGNUM = BIGNUM_DEFAULT
 	//BIGNUM64 uint64 = uint64(math.Pow(2, 64)) - 1
+	DebugActiveMap bool = false
 )
 
 var (
@@ -63,14 +65,13 @@ func (c *ActiveMap) BootActive() {
 }
 
 func (c *ActiveMap) SetActiveData(group string, data ActiveData) bool {
-	log_active_map := false
 
 	if group == "" {
 		log.Printf("ERROR setActiveMap group empty")
 		return false
 	}
-	if log_active_map {
-		log.Printf("setActiveMap group='%s' data='%v'", group, data)
+	if DebugActiveMap {
+		//log.Printf("setActiveMap group='%s' data='%v'", group, data)
 	}
 
 	if data.Hash == "" {
@@ -90,15 +91,12 @@ func (c *ActiveMap) SetActiveData(group string, data ActiveData) bool {
 } // end func setActiveData
 
 func (c *ActiveMap) UpActiveValue(group string, key string) {
-	log_active_map := false
 
 	if group == "" {
 		log.Printf("ERROR upActiveValue group empty")
 		return
 	}
-	if log_active_map {
-		log.Printf("upActiveValue group='%s' key='%v'", group, key)
-	}
+
 
 	c.mux.Lock()
 	data := c.V[group]
@@ -119,6 +117,9 @@ func (c *ActiveMap) UpActiveValue(group string, key string) {
 		data.Num++
 	}
 	c.V[group] = data
+	if DebugActiveMap {
+		log.Printf("upActiveValue group='%s' key='%v' num=%d hi=%d", group, key, data.Num, data.Hi)
+	}
 	c.mux.Unlock()
 } // end func setActiveData
 
@@ -127,7 +128,6 @@ func (c *ActiveMap) GetActiveMap(id uint64, short bool, bignum uint64, cutLowGro
 	c.mux.RLock()
 
 	len_cv := len(c.V)
-	//g2be := make(map[string]string, len_cv)
 	for _, data := range c.V {
 		if short {
 			line := data.Group
@@ -150,14 +150,13 @@ func (c *ActiveMap) GetActiveMap(id uint64, short bool, bignum uint64, cutLowGro
 			}
 		case BIGNUM63:
 			if data.Hi >= BIGNUM63 {
-				line = fmt.Sprintf("%s %016d %016d %s", data.Group, BIGNUM63, data.Lo, data.Status) // leftpad zeros
+				line = fmt.Sprintf("%s %019d %019d %s", data.Group, BIGNUM63, data.Lo, data.Status) // leftpad zeros
 			} else {
-				line = fmt.Sprintf("%s %016d %016d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
+				line = fmt.Sprintf("%s %019d %019d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
 			}
-		//case BIGNUM64:
-		//	if data.Hi >= BIGNUM63 {
-		//		line = fmt.Sprintf("%s %016d %016d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
-		//	}
+		case BIGNUM64:
+			//line = fmt.Sprintf("%s %020d %020d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
+			line = fmt.Sprintf("%s %d %d %s", data.Group, data.Hi, data.Lo, data.Status)
 		}
 		//line := fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
 		if line != "" {
@@ -369,12 +368,13 @@ func (c *ActiveMap) LoadActiveFile(cfg *config.CFG) {
 
 	data := strings.Split(string(file_list), "\n")
 	loaded, bad, badg := 0, 0, []string{}
-	for _, line := range data {
+	for i, line := range data {
 		if len(line) <= 0 {
 			continue
 		}
 		values := strings.Split(line, " ")
 		if len(values) != 4 {
+			log.Printf("ERROR in LoadActiveFile: i=%d file='%s'", i, local_active_file)
 			continue
 		}
 
@@ -390,10 +390,12 @@ func (c *ActiveMap) LoadActiveFile(cfg *config.CFG) {
 		high := utils.Str2uint64(values[1])
 		low := utils.Str2uint64(values[2])
 		switch low {
+		case 0:
+			low = 1 // should be at least 1 or thunderbird denies reading a group where low is 0
 		case 1:
 			ad.Num = high
 		default:
-			ad.Num = high - low
+			ad.Num = high - low // TODO FIXME does not count or even know about deleted articles
 		}
 		ad.Hi = high
 		ad.Lo = low
