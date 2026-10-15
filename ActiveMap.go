@@ -145,6 +145,30 @@ func (c *ActiveMap) GetActiveMap(id uint64, short bool, bignum uint64, cutLowGro
 	return retlist
 } // end func getActiveMap
 
+func (c *ActiveMap) GetActiveMapCounts(id uint64, short bool, bignum uint64, cutLowGroups bool) []string {
+	var retlist []string
+	c.mux.RLock()
+
+	len_cv := len(c.V)
+	for _, data := range c.V {
+		if short {
+			line := data.Group
+			retlist = append(retlist, line)
+			continue
+		}
+		line := fmt.Sprintf("%s %d %d %d %s", data.Group, data.Hi, data.Lo, data.Num, data.Status)
+		//line := fmt.Sprintf("%s %010d %010d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
+		//line := fmt.Sprintf("%s %019d %019d %s", data.Group, data.Hi, data.Lo, data.Status) // leftpad zeros
+		retlist = append(retlist, line)
+
+		//log.Printf("getActiveMap line='%s'", line)
+	} // end for data cv
+	c.mux.RUnlock()
+	log.Printf("[L=%d] GetActiveMapCounts len_cv=%d ret=%d", id, len_cv, len(retlist))
+	sort.Sort(AsortFunc(retlist))
+	return retlist
+} // end func getActiveMap
+
 func (c *ActiveMap) GetActiveData(group string) ActiveData {
 	c.mux.RLock()
 	data := c.V[group]
@@ -171,7 +195,7 @@ func (c *ActiveMap) GetActiveData(group string) ActiveData {
 	/*
 		retdata.Hash = data.Hash
 		retdata.Group = data.Group
-		retdata.num = data.num
+		retdata.Num = data.Num
 		retdata.Hi = data.Hi
 		retdata.Lo = data.Lo
 		retdata.Status = data.Status
