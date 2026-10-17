@@ -121,6 +121,36 @@ func (c *ActiveMap) UpActiveValue(group string, key string) {
 	c.mux.Unlock()
 } // end func setActiveData
 
+// SetActiveHi sets the high watermark of a group to msgnum if it is higher.
+// unlike UpActiveValue(group, "hi") it does not count: after a crash the counter
+// stayed behind the real article numbers from the overview files.
+func (c *ActiveMap) SetActiveHi(group string, msgnum uint64) {
+	if group == "" || msgnum == 0 {
+		return
+	}
+	c.mux.Lock()
+	data := c.V[group]
+	if data.Hash == "" {
+		data.Hash = utils.Hash256(group)
+	}
+	if data.Group == "" {
+		data.Group = group
+	}
+	if data.Status == "" {
+		data.Status = "y"
+	}
+	data.Update = utils.UnixTimeSec()
+	if msgnum > data.Hi {
+		data.Hi = msgnum
+	}
+	data.Num++
+	c.V[group] = data
+	if DebugActiveMap {
+		log.Printf("SetActiveHi group='%s' num=%d hi=%d", group, data.Num, data.Hi)
+	}
+	c.mux.Unlock()
+} // end func SetActiveHi
+
 func (c *ActiveMap) GetActiveMap(id uint64, short bool, bignum uint64, cutLowGroups bool) []string {
 	var retlist []string
 	c.mux.RLock()
@@ -283,11 +313,19 @@ func (c *ActiveMap) Write_activemap(cfgSettings *config.SETTINGS, ignore_notboot
 	local_active_file := cfgSettings.ActiveDir + "/local-mode.active"
 	filename_tmp := fmt.Sprintf("%s.%d.tmp", local_active_file, now)
 	filename_bak := fmt.Sprintf("%s.old", local_active_file)
-	fh, err := os.OpenFile(filename_tmp, os.O_CREATE|os.O_WRONLY, 0644)
+	fh, err := os.OpenFile(filename_tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Printf("ERROR write_activemap tmp_file='%s'", filename_tmp)
 		return false
 	}
+	tmp_done := false
+	defer func() {
+		if !tmp_done {
+			// error: do not leave the .tmp behind
+			fh.Close()
+			os.Remove(filename_tmp)
+		}
+	}()
 
 	log.Printf("Write ActiveMap len=%d tmp_file='%s'", len(list), filename_tmp)
 
@@ -307,6 +345,10 @@ func (c *ActiveMap) Write_activemap(cfgSettings *config.SETTINGS, ignore_notboot
 
 	if err := datawriter.Flush(); err != nil {
 		log.Printf("ERROR: write_activemap flush failed")
+		return false
+	}
+	if err := fh.Sync(); err != nil {
+		log.Printf("ERROR: write_activemap sync .tmp failed err='%v'", err)
 		return false
 	}
 
@@ -336,15 +378,20 @@ func (c *ActiveMap) Write_activemap(cfgSettings *config.SETTINGS, ignore_notboot
 		}
 	}
 
-	if err := os.Rename(local_active_file, filename_bak); err != nil {
-		log.Printf("ERROR write_activemap rename BAK failed err='%v'", err)
-		return false
+	// hardlink instead of rename: the active file never goes missing.
+	// on the very first write there is no active file yet.
+	if utils.FileExists(local_active_file) {
+		if err := os.Link(local_active_file, filename_bak); err != nil {
+			log.Printf("ERROR write_activemap link BAK failed err='%v'", err)
+			return false
+		}
 	}
 
 	if err := os.Rename(filename_tmp, local_active_file); err != nil {
 		log.Printf("ERROR write_activemap move failed .tmp to='%s' err='%v'", local_active_file, err)
 		return false
 	} else {
+		tmp_done = true
 		// ALL OK
 		log.Printf("INFO local-mode.active wrote=%d lines=%d", wrote, len(list))
 		return true
